@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toggle Motor</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: #fff;
+    }
+
+    .header {
+      text-align: center;
+      padding: 10px;
+      font-size: 20px;
+      background-color: #ffc8fc;
+      border-radius: 20px;
+      margin: 10px auto;
+      max-width: 400px;
+    }
+
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 90vh;
+    }
+
+    .card {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 25px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      position: relative;
+    }
+
+    .motor-label {
+      font-size: 26px;
+      font-weight: 500;
+    }
+
+    .motor-state {
+      font-size: 60px;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+
+    .fault-box {
+      font-size: 20px;
+      padding: 10px;
+      margin-top: 20px;
+      border-radius: 10px;
+      background-color: #e0d5ff;
+    }
+
+    .switch {
+      width: 120px;
+      height: 50px;
+      background: #aaff33;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      padding: 5px;
+      margin: 0 auto;
+      cursor: pointer;
+    }
+
+    .switch-circle {
+      height: 40px;
+      width: 40px;
+      background: #d0d0d0;
+      border-radius: 50%;
+      margin-left: auto;
+      transition: all 0.3s ease;
+    }
+
+    .switch.off {
+      background: #ccc;
+    }
+
+    .switch.off .switch-circle {
+      margin-left: 0;
+    }
+
+    .menu-btn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 28px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 10;
+      padding: 8px;
+      border-radius: 10px;
+      transition: background-color 0.3s;
+    }
+
+    .menu-btn:hover {
+      background-color: #eee;
+    }
+  </style>
+</head>
+<body>
+  <button id="back-btn" class="menu-btn">↩</button>
+  <div class="header">Motor Control</div>
+
+  <div class="container">
+    <div class="card">
+      <div class="motor-label">Motor<br>Condition</div>
+      <div class="motor-state" id="motor-state">OFF</div>
+      <div class="switch off" id="motor-switch">
+        <div class="switch-circle"></div>
+      </div>
+      <div class="fault-box" id="fault-box">Fault Status: No Fault</div>
+    </div>
+  </div>
+
+  <script>
+    const backBtn = document.getElementById('back-btn');
+    const motorStateText = document.getElementById('motor-state');
+    const motorSwitch = document.getElementById('motor-switch');
+    const faultBox = document.getElementById('fault-box');
+
+    let motorState = false;
+    let faultDetected = false;
+
+    function updateFirebase(state) {
+      const firebaseUrl = 'https://predictive-maintenance-ee697-default-rtdb.asia-southeast1.firebasedatabase.app/motor_condition.json';
+      fetch(firebaseUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state ? "ON" : "OFF")
+      })
+      .then(response => response.json())
+      .then(data => console.log('Motor state updated:', data))
+      .catch(error => console.error('Error:', error));
+    }
+
+    function getFaultStatus() {
+      const faultUrl = 'https://predictive-maintenance-ee697-default-rtdb.asia-southeast1.firebasedatabase.app/Prediction/Fault.json';
+      fetch(faultUrl)
+        .then(response => response.json())
+        .then(data => {
+          faultDetected = data === 1;
+
+          if (faultDetected) {
+            faultBox.textContent = 'Fault Status: Fault Detected';
+            faultBox.style.backgroundColor = '#ff4c4c';
+
+            // Force motor OFF
+            motorState = false;
+            motorStateText.textContent = "OFF";
+            motorSwitch.classList.add('off');
+            updateFirebase(false);
+          } else {
+            faultBox.textContent = 'Fault Status: No Fault';
+            faultBox.style.backgroundColor = '#e0d5ff';
+          }
+        });
+    }
+
+    function toggleMotorState() {
+      if (faultDetected && !motorState) {
+        alert("Cannot turn ON motor: Fault detected!");
+        return;
+      }
+
+      motorState = !motorState;
+      motorStateText.textContent = motorState ? "ON" : "OFF";
+      motorSwitch.classList.toggle('off', !motorState);
+      updateFirebase(motorState);
+    }
+
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+
+    motorSwitch.addEventListener('click', toggleMotorState);
+
+    // Initial fault and state check
+    getFaultStatus();
+    setInterval(getFaultStatus, 5000);
+  </script>
+</body>
+</html>

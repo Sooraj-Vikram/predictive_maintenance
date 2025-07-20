@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Predictive Maintenance</title>
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCZdPNeOyjsW9qjKrDLabWSCwFBg-b5NxA",
+      authDomain: "predictive-maintenance-ee697.firebaseapp.com",
+      databaseURL: "https://predictive-maintenance-ee697-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "predictive-maintenance-ee697",
+      storageBucket: "predictive-maintenance-ee697.firebasestorage.app",
+      messagingSenderId: "905376142266",
+      appId: "1:905376142266:web:dc081d8bb7d6bab62e4383",
+      measurementId: "G-B57LTZHVZ4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    let timeData = [], currentData = [], vibrationData = [], temperatureData = [];
+
+    function updateGraphs() {
+      const layout = {
+        paper_bgcolor: '#111',
+        plot_bgcolor: '#111',
+        font: { color: '#0f0' },
+        margin: { t: 30, l: 40, r: 30, b: 40 },
+        xaxis: { gridcolor: '#222', tickfont: { color: '#0f0' }},
+        yaxis: { gridcolor: '#222', tickfont: { color: '#0f0' }}
+      };
+
+      const trace = (yData, name) => ({
+        x: timeData,
+        y: yData,
+        mode: 'lines+markers',
+        name: name,
+        line: { color: '#0f0' },
+        marker: { color: '#0f0', size: 5 }
+      });
+
+      Plotly.newPlot('graph1', [trace(currentData, 'Current')], { ...layout, title: 'Current' });
+      Plotly.newPlot('graph2', [trace(vibrationData, 'Vibration')], { ...layout, title: 'Vibration' });
+      Plotly.newPlot('graph3', [trace(temperatureData, 'Temperature')], { ...layout, title: 'Temperature' });
+    }
+
+    function updateDashboard(data) {
+  const current = data.Sensor.Current.toFixed(3);
+  const temperature = data.Sensor.Temperature.toFixed(2);
+  const vibration = data.Sensor.Vibration.toFixed(2);
+
+  document.getElementById('current-val').textContent = `${current} A`;
+  document.getElementById('temperature-val').textContent = `${temperature} °C`;
+  document.getElementById('vibration-val').textContent = vibration;
+
+  const predictionBox = document.getElementById('prediction-box');
+  const faultTypeBox = document.getElementById('fault-type');
+
+  if (data.Prediction.Fault === 1) {
+    predictionBox.innerHTML = `<i data-lucide="alert-circle"></i> ⚠ Fault Detected!`;
+    predictionBox.classList.add("fault-active");
+    faultTypeBox.innerHTML = `<i data-lucide="alert-triangle"></i> Fault Type: <strong>${data.FaultName.Name}</strong>`;
+  } else {
+    predictionBox.innerHTML = `<i data-lucide="check-circle"></i> No Fault`;
+    predictionBox.classList.remove("fault-active");
+    predictionBox.style.backgroundColor = "#d5fcdc";
+    faultTypeBox.innerHTML = `<i data-lucide="activity"></i> Operational Status : <strong>Good</strong>`;
+  }
+
+  // Refresh icons inside dynamic HTML
+  lucide.createIcons();
+}
+
+
+
+    onValue(ref(database, '/'), (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.Sensor && data.Prediction && data.FaultName) {
+        const timestamp = new Date().toLocaleTimeString();
+        timeData.push(timestamp);
+        currentData.push(data.Sensor.Current || 0);
+        vibrationData.push(data.Sensor.Vibration || 0);
+        temperatureData.push(data.Sensor.Temperature || 0);
+        if (timeData.length > 20) {
+          timeData.shift(); currentData.shift(); vibrationData.shift(); temperatureData.shift();
+        }
+        updateGraphs();
+        updateDashboard(data);
+      }
+    });
+
+    window.togglePage = function () {
+      window.location.href = 'toggle.html';
+    };
+  </script>
+
+  <!-- 🔗 Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f5f5f5;
+    }
+    @keyframes pulse {
+  0% {
+    background-color: #ff4c4c;
+    box-shadow: 0 0 10px #ff4c4c;
+  }
+  50% {
+    background-color: #ff9999;
+    box-shadow: 0 0 20px #ff9999;
+  }
+  100% {
+    background-color: #ff4c4c;
+    box-shadow: 0 0 10px #ff4c4c;
+  }
+}
+
+.fault-active {
+  animation: pulse 1s infinite;
+  color: white;
+}
+
+    h1 {
+      text-align: center;
+      padding: 20px;
+      background: #fcd5ff;
+      color: #111;
+      margin: 0;
+      position: relative;
+    }
+
+    .menu-icon {
+      position: absolute;
+      left: 20px;
+      top: 20px;
+      cursor: pointer;
+      font-size: 24px;
+      background-color: #fff;
+      border-radius: 6px;
+      padding: 6px 10px;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .dashboard {
+      display: flex;
+      height: calc(100vh - 80px);
+    }
+
+    .left-panel {
+      width: 60%;
+      padding: 10px;
+      background: #e5d9fc;
+      border-radius: 30px;
+      margin: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .graph {
+      flex: 1;
+      margin-bottom: 20px;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+    }
+
+    .right-panel {
+      width: 40%;
+      margin: 20px 20px 20px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .grid-panel {
+    background-color: rgba(196, 249, 246, 1);
+      display: flex;
+      flex-direction: column;
+      width: 90%;
+      height: 55%;
+      
+      border-radius: 20px;
+    }
+
+    .grid-box {
+      width: 75%;
+      height: 75%;
+      flex: 1 1 45%;
+      background-color: #eaf6ff;
+      padding: 20px;
+      border-radius: 20px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+    }
+    .grid-box-current {
+  width: 75%;
+  height: 75%;
+  flex: 1 1 45%;
+  background-color: rgb(193, 215, 255);
+  padding: 20px;
+  border-radius: 20px;
+  text-align: center;
+  margin-top: 2%;
+  margin-left: 2%;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-box-current i {
+  font-size: 36px; /* Bigger icon */
+  margin-bottom: 10px;
+}
+
+.grid-box-current span#current-label {
+  font-size: 20px; /* "Current" label size */
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.grid-box-current span#current-val {
+  font-size: 28px; /* Current value (e.g. 0.151 A) */
+  font-weight: 700;
+}
+
+.grid-box-temperature {
+  width: 75%;
+  height: 75%;
+  margin-top: 2%;
+  margin-left: 2%;
+  margin-right: 2%;
+  flex: 1 1 45%;
+  background-color: rgb(255, 218, 218);
+  padding: 20px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-box-temperature i {
+  font-size: 36px; /* Bigger icon */
+  margin-bottom: 10px;
+}
+
+.grid-box-temperature span#temperature-label {
+  font-size: 20px; /* "Temperature" label size */
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.grid-box-temperature span#temperature-val {
+  font-size: 28px; /* Temperature value (e.g. 34.2 °C) */
+  font-weight: 700;
+}
+
+.grid-box.wide {
+  flex-basis: 100%;
+  margin-bottom: 10%;
+  background-color: rgb(252, 255, 242);
+  margin-top: 10%;
+  margin-left: 2%;
+  margin-right: 2%;
+  padding: 20px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-box.wide i {
+  font-size: 36px; /* Bigger icon */
+  margin-bottom: 10px;
+}
+
+.grid-box.wide span#vibration-label {
+  font-size: 20px; /* "Vibration" label size */
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.grid-box.wide span#vibration-val {
+  font-size: 28px; /* Vibration value */
+  font-weight: 700;
+}
+
+
+    .grid-box i {
+      display: block;
+      margin: 0 auto 10px;
+      color: #0077cc;
+      width: 24px;
+      height: 24px;
+    }
+
+    .status-box {
+  background-color: #dfffe0;
+  font-size: 22px; /* Slightly larger for better visibility */
+  font-weight: bold;
+  padding: 20px;
+  border-radius: 25px;
+  text-align: center;
+  width: 82%;
+  margin-top: 15px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.status-box i {
+  font-size: 36px; /* Larger icon */
+  margin-bottom: 8px;
+}
+
+
+    .status-box i {
+      width: 24px;
+      height: 24px;
+    }
+
+    .grid-panel-top{
+      display: flex;
+      flex-direction: row;
+      height: 40%;
+    }
+    .grid-panel-bottom{
+      display: flex;
+      flex-direction: row;
+      height: 40%;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>
+    <span class="menu-icon" onclick="togglePage()">☰</span>
+    Predictive Maintenance
+  </h1>
+
+  <div class="dashboard">
+    <div class="left-panel">
+      <div id="graph1" class="graph"></div>
+      <div id="graph2" class="graph"></div>
+      <div id="graph3" class="graph"></div>
+    </div>
+
+    <div class="right-panel">
+      <div class="grid-panel">
+        <div class="grid-panel-top">
+
+          <div class="grid-box-current" id="current-box">
+            <i data-lucide="zap"></i>
+            <span id="current-label">Current</span>
+            <span id="current-val">0.151 A</span>
+          </div>
+          <div class="grid-box-temperature" id="temperature-box">
+            <i data-lucide="thermometer-sun"></i>
+            <span id="temperature-label">Temperature</span>
+            <span id="temperature-val">-- °C</span>
+          </div>
+          
+        </div>
+        <div class="grid-panel-bottom">
+
+          <div class="grid-box wide" id="vibration-box">
+            <i data-lucide="activity-square"></i>
+            <span id="vibration-label">Vibration</span>
+            <span id="vibration-val">--</span>
+          </div>
+          
+        </div>
+      </div>
+
+      <div class="status-box" id="prediction-box">
+        <i data-lucide="check-circle"></i>
+        <span id="prediction-text">No Fault</span>
+      </div>
+      
+      <div class="status-box" id="fault-type">
+        <i data-lucide="activity"></i> Operational Status: <strong>--</strong>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>
